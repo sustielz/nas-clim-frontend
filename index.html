@@ -226,12 +226,11 @@ async function loadGrid(datasetId) {
     const dLon = lons.length > 1 ? Math.abs(lons[1] - lons[0]) : 0.03;
     const dLat = lats.length > 1 ? Math.abs(lats[1] - lats[0]) : 0.03;
 
+    const hasData = data.has_data;
+
     for (let i = 0; i < lons.length; i++) {
       for (let j = 0; j < lats.length; j++) {
-        const val   = values[i][j];
-        const color = valueToColor(val, maxVal);
-
-        if (color === null) continue;  // 跳過無資料的格點
+        if (!hasData[i][j]) continue;  // 沒資料跳過
 
         const bounds = [
           [lats[j] - dLat/2, lons[i] - dLon/2],
@@ -240,8 +239,8 @@ async function loadGrid(datasetId) {
 
         L.rectangle(bounds, {
           color:       "transparent",
-          fillColor:   color,
-          fillOpacity: 0.65,
+          fillColor:   "rgba(180,180,180,0.4)",
+          fillOpacity: 0.4,
           weight:      0,
         }).addTo(gridLayer);
       }
@@ -310,8 +309,7 @@ async function runQuery() {
   clearCharts();
 
   try {
-    const url  = `${API}/query/${selectedDataset}/point?lat=${selectedLat}&lon=${selectedLon}`;
-    const res  = await fetch(url);
+    const res = await fetch(`${API}/query/${datasetId}/grid?downsample=15`);
     const data = await res.json();
     drawBarCharts(data);
     status.textContent = "✓ ok";
