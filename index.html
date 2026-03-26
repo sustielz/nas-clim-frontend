@@ -122,26 +122,19 @@
     <div class="section-title">Show Floodplains</div>
     <div class="tab-group">
       <button class="tab year" id="tab-25yr"
-              onclick="setRP('25yr', this)">
+              onclick='setRP("25yr", this)'>
         25-year
       </button>
       <button class="tab year" id="tab-50yr"
-              onclick="setRP('50yr', this)">
+              onclick='setRP("50yr", this)'>
         50-year
       </button>
       <button class="tab year" id="tab-100yr"
-              onclick="setRP('100yr', this)">
+              onclick='setRP("100yr", this)'>
         100-year
       </button>
     </div>
   </div>
-
-
-
-
-
-
-
 
 
   <!-- Instructions -->
@@ -208,7 +201,7 @@ let selectedLat = null;
 let selectedLon = null;
 let marker      = null;
 let charts      = [];
-let gridLayer   = null;
+let floodLayers = {};
 let astLayer    = null;
 
 // ── 地圖 ──────────────────────────────────────────────────────
@@ -264,55 +257,37 @@ function setMode(mode, btn) {
 
   if (mode === "wave_surge") {
     if (astLayer)  { astLayer.clearLayers(); }
-    loadGrid();
   } else if (mode === "fragility") {
-    if (gridLayer) { gridLayer.clearLayers(); }
     loadASTPoints();
-  }
+  } 
 }
 
-function setRP(rp, btn) {
+
+async function setRP(rp, btn) {
+  await toggleGrid(rp);
+  console.log("tab-"+rp)
+  tab = document.getElementById("tab-"+rp);
   
-  document.getElementById("tab-25yr").className = "tab";
-  document.getElementById("tab-50yr").className = "tab";
-  document.getElementById("tab-100yr").className = "tab";
-
-  if (gridLayer) { 
-    gridLayer.clearLayers();  
-<!-- If we click the same button twice, toggle all layers -->
-    if (rp === currentRP) { 
-	    currentRP='None';
-	    return; 
-    }  
+  if (tab.className === "tab active-rp") {
+    tab.className = "tab";
+//    floodLayers[rp].removeFrom(map);
+  } else { 
+    tab.className = "tab active-rp";
+//    floodLayers[rp].addTo(map);
   }
-
   currentRP = rp;
-  switch(rp) {
-    case "25yr":
-      document.getElementById("tab-25yr").className = "tab active-rp";
-      break;
-    case "50yr":
-      document.getElementById("tab-50yr").className = "tab active-rp";
-      break;
-    case "100yr":
-      document.getElementById("tab-100yr").className = "tab active-rp";
-      break;
-  }
-  loadGrid()
 }
 
 // ── Wave Surge 格點覆蓋層 ─────────────────────────────────────
-async function loadGrid() {
+
+async function loadGrid(rp) {
+
   document.getElementById("status").textContent = "Loading data coverage...";
   try {
-    const res  = await fetch(`${API}/query/wave_surge/grid?downsample=15&check_rp=${currentRP}`);
+    const res  = await fetch(`${API}/query/wave_surge/grid?downsample=15&check_rp=${rp}`);
     const data = await res.json();
 
-    if (gridLayer) {
-      gridLayer.clearLayers();
-    } else {
-      gridLayer = L.layerGroup().addTo(map);
-    }
+    gridLayer = L.layerGroup();
 
     const lons    = data.lons;
     const lats    = data.lats;
@@ -335,13 +310,37 @@ async function loadGrid() {
         }).addTo(gridLayer);
       }
     }
-    document.getElementById("status").textContent =
-      "Click on the shaded area to query.";
+    document.getElementById("status").textContent = "Click on the shaded area to query."; 
+    floodLayers[rp] = gridLayer; 
   } catch(e) {
-    document.getElementById("status").textContent =
-      `Failed to load coverage: ${e.message}`;
-  }
+    document.getElementById("status").textContent = `Failed to load coverage: ${e.message}`;
+  }                     
 }
+
+async function toggleGrid(rp) {
+  if (!(Object.keys(floodLayers).includes(rp))) {
+    await loadGrid(rp); 
+  }
+  layer = floodLayers[rp];
+  if (map.hasLayer(layer)) {
+    map.removeLayer(layer);
+  } else {
+    map.addLayer(layer);
+  }
+    
+
+//  tab = document.getElementById("tab-"+rp);
+//  if (tab.className === "tab active-rp") {
+//    tab.className = "tab";
+//    floodLayers[rp].removeFrom(map);
+//  } else { 
+//    tab.className = "tab active-rp";
+//  }
+//  currentRP = rp;
+}
+
+
+
 
 // ── Fragility AST 圓點 ────────────────────────────────────────
 async function loadASTPoints() {
